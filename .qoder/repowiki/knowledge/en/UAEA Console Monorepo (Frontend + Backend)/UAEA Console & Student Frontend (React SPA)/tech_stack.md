@@ -1,0 +1,1 @@
+React 18 with `react-router-dom` v6 for routing, Vite environment variables (`VITE_API_URL`) for backend configuration, and plain CSS modules/tokens under `styles/` — no UI framework beyond custom primitives.

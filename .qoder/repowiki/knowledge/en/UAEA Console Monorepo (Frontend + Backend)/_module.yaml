@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: ""
+title: UAEA Console Monorepo (Frontend + Backend)
+scope:
+    - README.md
+    - .gitignore
+    - package.json
+    - package-lock.json
+    - vite.config.js
+    - index.html
+source_files: []
+depends_on: []
+related_to: []

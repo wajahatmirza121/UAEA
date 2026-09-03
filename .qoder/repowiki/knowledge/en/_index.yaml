@@ -1,0 +1,57 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: Q0DeR-MaG1C-BrAnCh-Fo2-NoN-GiT-Or-No-C0MmIt
+nodes_managed: true
+exported_at: "2026-09-03T07:25:27Z"
+modules:
+    "":
+        dir_name: UAEA Console Monorepo (Frontend + Backend)
+        title: UAEA Console Monorepo (Frontend + Backend)
+        scope:
+            - README.md
+            - .gitignore
+            - package.json
+            - package-lock.json
+            - vite.config.js
+            - index.html
+        source_files: []
+        children:
+            - backend
+            - frontend
+        depends_on: []
+        related_to: []
+    backend:
+        dir_name: UAEA Backend (FastAPI Chat & RAG Service)
+        title: UAEA Backend (FastAPI Chat & RAG Service)
+        scope:
+            - uaea-backend/
+        source_files: []
+        children:
+            - backend/adapters_and_app_core
+        depends_on: []
+        related_to:
+            - path: frontend
+    backend/adapters_and_app_core:
+        dir_name: FastAPI Application Core (App, Config & Schemas)
+        title: FastAPI Application Core (App, Config & Schemas)
+        scope:
+            - uaea-backend/app/main.py
+            - uaea-backend/app/config.py
+            - uaea-backend/app/schemas.py
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: frontend
+    frontend:
+        dir_name: UAEA Console & Student Frontend (React SPA)
+        title: UAEA Console & Student Frontend (React SPA)
+        scope:
+            - src/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend
+            - path: backend/adapters_and_app_core

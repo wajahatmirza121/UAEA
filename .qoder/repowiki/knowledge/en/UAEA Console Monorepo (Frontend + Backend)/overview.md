@@ -1,0 +1,1 @@
+Top-level monorepo that bundles the React student/admin SPA and the FastAPI chat/RAG backend behind a single npm workspace, with a documented seam for wiring them in Phase 2.

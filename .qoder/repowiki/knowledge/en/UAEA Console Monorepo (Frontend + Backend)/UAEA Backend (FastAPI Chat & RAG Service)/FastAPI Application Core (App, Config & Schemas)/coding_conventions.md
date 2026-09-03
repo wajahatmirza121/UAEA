@@ -1,0 +1,4 @@
+- Application-wide configuration is exposed as a module-level `Settings()` singleton loaded from `.env` via `pydantic_settings.BaseSettings` with `extra='ignore'`.
+- Output Pydantic models enable ORM serialization by setting `model_config = ConfigDict(from_attributes=True)`.
+- Optional fields are declared using Python union syntax (`str | None`) rather than `typing.Optional`.
+- Cross-cutting concerns (CORS, rate limiting, logging) are applied at the app factory in `main.py` before routers are mounted.

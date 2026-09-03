@@ -1,0 +1,139 @@
+/* ===========================================================================
+ * Design tokens
+ *
+ * Light is the product default. Base is a cool paper white so the brass
+ * accent has something warm to sit against — this console governs stamped,
+ * dated, official paper, and the palette is built around that.
+ *
+ * Two rules worth keeping:
+ *   1. Every colour that carries TEXT has its own token (--brass, --jade).
+ *      The -bright variants are for fills, bars and chart strokes only.
+ *   2. Jade means "a human vouched for this" and nothing else. It is never
+ *      decoration.
+ * ========================================================================= */
+
+.uaea[data-theme="light"] {
+  --bg: #f4f6f9;
+  --bg-2: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f8fafc;
+
+  --line: #e4e9f0;
+  --line-2: #cdd6e1;
+
+  --t1: #16202c; /* ink — navy-black, not grey */
+  --t2: #586675;
+  --t3: #8792a2;
+
+  --brass: #a8730f;
+  --brass-bright: #d9a441;
+  --brass-soft: #fcf4e3;
+  --brass-line: #e9d2a0;
+
+  --jade: #0f7a5a;
+  --jade-bright: #2fa980;
+  --jade-soft: #e6f5ef;
+  --jade-line: #b6e0d0;
+
+  --amber: #a8710a;
+  --amber-bright: #e0a32e;
+  --amber-soft: #fcf3e1;
+  --amber-line: #edd5a4;
+
+  --rose: #c02d45;
+  --rose-bright: #e05c74;
+  --rose-soft: #fdecef;
+  --rose-line: #f2c2cb;
+
+  --sky: #1868ae;
+  --sky-bright: #4a9ce0;
+  --sky-soft: #eaf3fb;
+  --sky-line: #bbd9f0;
+
+  --violet: #5b41cc;
+  --violet-bright: #7c66e8;
+  --violet-soft: #efecfc;
+  --violet-line: #cdc3f5;
+
+  --grey-bright: #94a1b2;
+
+  --hover: rgba(22, 32, 44, 0.045);
+  --hover-2: rgba(22, 32, 44, 0.08);
+
+  --sh-1: 0 1px 2px rgba(22, 32, 44, 0.05);
+  --sh-2: 0 4px 14px -3px rgba(22, 32, 44, 0.1);
+  --sh-3: 0 24px 60px -14px rgba(22, 32, 44, 0.26);
+
+  --scrim: rgba(28, 38, 52, 0.34);
+  --thumb: rgba(22, 32, 44, 0.16);
+  --thumb-h: rgba(22, 32, 44, 0.3);
+
+  color-scheme: light;
+}
+
+.uaea[data-theme="dark"] {
+  --bg: #0a0c10;
+  --bg-2: #0d1015;
+  --panel: #12161d;
+  --panel-2: #171c25;
+
+  --line: rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.14);
+
+  --t1: #e8ebf1;
+  --t2: #97a1b0;
+  --t3: #69727f;
+
+  --brass: #e5bc6e;
+  --brass-bright: #d9a441;
+  --brass-soft: rgba(217, 164, 65, 0.12);
+  --brass-line: rgba(217, 164, 65, 0.32);
+
+  --jade: #6fccab;
+  --jade-bright: #4fbf9a;
+  --jade-soft: rgba(79, 191, 154, 0.12);
+  --jade-line: rgba(79, 191, 154, 0.3);
+
+  --amber: #efc079;
+  --amber-bright: #e8a93c;
+  --amber-soft: rgba(232, 169, 60, 0.12);
+  --amber-line: rgba(232, 169, 60, 0.3);
+
+  --rose: #f49aa6;
+  --rose-bright: #ef6b7c;
+  --rose-soft: rgba(239, 107, 124, 0.12);
+  --rose-line: rgba(239, 107, 124, 0.3);
+
+  --sky: #8cc8f5;
+  --sky-bright: #5aaef0;
+  --sky-soft: rgba(90, 174, 240, 0.12);
+  --sky-line: rgba(90, 174, 240, 0.3);
+
+  --violet: #b7acf8;
+  --violet-bright: #9a8bf5;
+  --violet-soft: rgba(154, 139, 245, 0.12);
+  --violet-line: rgba(154, 139, 245, 0.3);
+
+  --grey-bright: #69727f;
+
+  --hover: rgba(255, 255, 255, 0.05);
+  --hover-2: rgba(255, 255, 255, 0.09);
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sh-2: 0 6px 20px -6px rgba(0, 0, 0, 0.5);
+  --sh-3: 0 26px 70px -16px rgba(0, 0, 0, 0.75);
+
+  --scrim: rgba(4, 6, 9, 0.7);
+  --thumb: rgba(255, 255, 255, 0.1);
+  --thumb-h: rgba(255, 255, 255, 0.22);
+
+  color-scheme: dark;
+}
+
+.uaea {
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 14px;
+  --sidebar: 264px;
+  --topbar: 60px;
+}

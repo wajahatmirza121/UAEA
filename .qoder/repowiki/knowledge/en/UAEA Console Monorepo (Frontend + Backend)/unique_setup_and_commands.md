@@ -1,0 +1,1 @@
+Run the SPA locally with `npm install && npm run dev` from the repo root (no env vars or backend required); build to `dist/` via `npm run build`; the backend is started separately under its own directory.

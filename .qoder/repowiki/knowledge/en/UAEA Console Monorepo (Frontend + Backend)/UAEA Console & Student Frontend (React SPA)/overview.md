@@ -1,0 +1,1 @@
+React single-page application providing a student-facing chat/portal and an admin console for managing services, content, flows, queues, and audit logs backed by a FastAPI backend.

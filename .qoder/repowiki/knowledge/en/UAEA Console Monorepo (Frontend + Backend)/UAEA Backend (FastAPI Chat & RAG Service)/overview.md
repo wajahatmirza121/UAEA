@@ -1,0 +1,1 @@
+FastAPI service that wires chat, lookup, and admin routers around a shared Pydantic Settings configuration, async PostgreSQL via Alembic, and an orchestrator-driven LLM/RAG pipeline with rate limiting and CORS.

@@ -1,0 +1,7 @@
+/* Single entry point for styling. Imported once, in main.jsx.
+   Order matters: tokens define the variables everything else reads. */
+@import "./tokens.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./components.css";
+@import "./student.css";

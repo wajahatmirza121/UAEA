@@ -1,0 +1,6 @@
+- Global state and mutations flow through `useApp()` from `@/context/AppContext`, which exposes a single `mutate(table, id, patch, meta)` function that handles create/update/delete uniformly against the in-memory store.
+- All HTTP calls are funneled through `lib/api.js`, which centralizes error handling, JSON serialization, and admin-key header injection via an `adminHeaders` helper.
+- Page-level shells (`AppShell`, `StudentShell`) own only chrome state and delegate page content to child routes via `<Outlet />`, keeping page logic isolated in `pages/<Feature>/index.jsx`.
+- Components import shared utilities and contexts using the `@/` path alias (e.g. `@/context/AppContext`, `@/hooks/useHotkey`, `@/lib/api`) rather than relative imports.
+- Admin-only API endpoints are grouped under `/v1/admin/*` and distinguished by requiring an `X-API-Key` header passed through the `apiKey` parameter of admin functions.
+- Audit logging is append-only: every mutation that carries a `meta` object is recorded via `logAudit` with action, table, recordId, and changes, producing an immutable history list.

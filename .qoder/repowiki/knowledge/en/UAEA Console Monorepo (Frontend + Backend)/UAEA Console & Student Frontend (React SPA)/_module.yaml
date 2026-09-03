@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: frontend
+title: UAEA Console & Student Frontend (React SPA)
+scope:
+    - src/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend
+    - path: backend/adapters_and_app_core

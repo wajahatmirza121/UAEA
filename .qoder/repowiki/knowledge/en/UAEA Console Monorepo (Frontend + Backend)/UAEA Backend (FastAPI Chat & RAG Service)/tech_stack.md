@@ -1,0 +1,1 @@
+FastAPI + Pydantic v2 (`pydantic_settings`) for configuration; SQLAlchemy async with asyncpg for persistence; Alembic for migrations; SlowAPI for IP-based rate limiting; Anthropic and OpenAI as LLM/embedding backends selected at runtime via `embedding_provider`; Docker and docker-compose for containerized deployment.

@@ -1,0 +1,1 @@
+Node 18+ with Vite 5 and React 18 for the SPA; FastAPI with async PostgreSQL (Alembic migrations) for the backend; shared domain shapes defined in frontend mocks serve as the future API schema contract.

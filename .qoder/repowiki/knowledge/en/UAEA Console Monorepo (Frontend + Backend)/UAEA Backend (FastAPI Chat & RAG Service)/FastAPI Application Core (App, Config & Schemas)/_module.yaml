@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: backend/adapters_and_app_core
+title: FastAPI Application Core (App, Config & Schemas)
+scope:
+    - uaea-backend/app/main.py
+    - uaea-backend/app/config.py
+    - uaea-backend/app/schemas.py
+source_files: []
+depends_on: []
+related_to:
+    - path: frontend

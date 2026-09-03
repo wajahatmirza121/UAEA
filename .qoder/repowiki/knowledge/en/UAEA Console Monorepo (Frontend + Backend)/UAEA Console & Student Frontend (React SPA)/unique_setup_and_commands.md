@@ -1,0 +1,1 @@
+The frontend expects a running FastAPI backend at `http://localhost:8000` unless overridden by the `VITE_API_URL` env variable; the mock seed data in `@/mocks` provides initial catalogue entries so the app renders without the server.

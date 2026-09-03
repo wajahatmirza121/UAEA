@@ -1,0 +1,3 @@
+- All frontend data mutations flow through a single `mutate()` entry point in `AppContext.jsx`, keeping pages free of direct fetch calls until the backend seam is enabled.
+- Permission checks on the UI (`src/lib/rbac.js`) mirror the intended server-side RBAC middleware, so client-side role gating follows the same map used by the backend.
+- Mock fixtures in `src/mocks/*` define the table schemas that the backend ORM models must match when the API is wired up.

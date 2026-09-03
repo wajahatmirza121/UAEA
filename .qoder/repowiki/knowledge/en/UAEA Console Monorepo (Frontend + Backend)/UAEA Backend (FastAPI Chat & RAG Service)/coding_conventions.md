@@ -1,0 +1,4 @@
+- All mutable application state (database URL, API keys, feature flags) is accessed exclusively through the module-level `settings` singleton defined in `app.config`.
+- Each API domain lives in its own router module under `app/api/` and is registered centrally in `app/main.py` via `app.include_router`.
+- External LLM/embedding calls go through the `adapters` package (a base class plus a mock implementation) rather than direct HTTP calls inside handlers or orchestrators.
+- Database access uses async SQLAlchemy sessions obtained from `app.db.session`, with models declared in `app.db.models` and migrations tracked under `alembic/versions`.

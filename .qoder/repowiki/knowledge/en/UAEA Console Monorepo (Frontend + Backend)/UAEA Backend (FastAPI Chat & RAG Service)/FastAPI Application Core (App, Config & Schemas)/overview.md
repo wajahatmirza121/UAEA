@@ -1,0 +1,1 @@
+Defines the FastAPI application entrypoint, centralized Pydantic Settings configuration, and shared request/response schemas for the UAEA backend's chat, lookup, and admin APIs.

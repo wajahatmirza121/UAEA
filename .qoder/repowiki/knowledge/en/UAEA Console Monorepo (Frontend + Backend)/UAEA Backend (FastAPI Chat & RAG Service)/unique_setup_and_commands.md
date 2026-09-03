@@ -1,0 +1,1 @@
+Run the service with `uvicorn app.main:app --reload` (or via `docker-compose up`); apply migrations with `alembic upgrade head`; seed initial data via `scripts/ingest_sample_docs.py` which uses the same `app.config.settings` singleton.

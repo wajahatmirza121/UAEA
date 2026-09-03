@@ -1,0 +1,1 @@
+FastAPI application with `pydantic-settings` for env-driven configuration, `slowapi` for IP-based rate limiting, and `asyncpg`/`psycopg2` async/sync PostgreSQL URIs configured via settings.
