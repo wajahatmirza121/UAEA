@@ -1,6 +1,8 @@
 """Chat API routes — /v1/chat/*."""
 
-from __future__ import annotations
+# NOTE: no `from __future__ import annotations` here — the slowapi @limiter.limit
+# decorator re-wraps the endpoint, hiding this module's globals from FastAPI's
+# string-annotation resolution, which breaks request-model parsing.
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
