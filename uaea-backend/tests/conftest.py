@@ -25,6 +25,12 @@ os.environ["LLM_API_KEY"] = "xai-test-REPLACE"
 os.environ["EMBEDDING_API_KEY"] = "sk-REPLACE-ME"
 os.environ["ADMIN_API_KEY"] = "test-admin-key"
 os.environ["APP_ENV"] = "test"
+os.environ["WHATSAPP_PROVIDER"] = "console"
+os.environ["OTP_DEV_ECHO"] = "false"
+os.environ["TODAY_OVERRIDE"] = "2026-10-20"
+# The suite sends hundreds of chat requests from one "IP" — lift rate limits.
+os.environ["RATE_LIMIT_PER_IP"] = "100000/minute"
+os.environ["RATE_LIMIT_PER_SESSION"] = "100000/minute"
 
 # Patch Vector type for SQLite before models are imported
 from sqlalchemy import TypeDecorator, Text
@@ -78,100 +84,27 @@ async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
         await session.rollback()
 
 
+_SEEDED = {"done": False}
+
+
 @pytest_asyncio.fixture
 async def seeded_db(engine) -> AsyncGenerator[AsyncSession, None]:
-    """Provide a session with seed data inserted."""
-    import datetime
+    """A session on a DB holding the full demo dataset (seeded once per run).
+
+    Per-test state (conversations, OTP challenges, tickets) is cleared so tests
+    don't affect each other.
+    """
+    from app.db.seed import seed_all
 
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
-        from app.db.models import (
-            Contact, Campus, Department, FeeTariff, Service, Deadline,
-            KnowledgeChunk, UnansweredQuery,
-        )
-
-        # Clear existing data (idempotent)
-        for table in ["unanswered_queries", "audit_logs", "escalation_tickets",
-                       "messages", "conversations", "knowledge_chunks",
-                       "deadlines", "services", "fee_tariffs", "departments",
-                       "campuses", "contacts"]:
-            try:
+        if not _SEEDED["done"]:
+            await seed_all(session)
+            _SEEDED["done"] = True
+        else:
+            for table in ["otp_challenges", "escalation_tickets", "messages", "conversations"]:
                 await session.execute(text(f"DELETE FROM {table}"))
-            except Exception:
-                pass
-
-        # Seed contacts
-        contacts = [
-            Contact(id="ct-01", phone="051-9250101", email="admissions@uaea.edu.pk", office_hours="09:00-16:30"),
-            Contact(id="ct-02", phone="051-9250142", email="exams@uaea.edu.pk", office_hours="09:00-16:30"),
-        ]
-        for c in contacts:
-            session.add(c)
-
-        # Seed campuses
-        campuses = [
-            Campus(id="camp-01", name="Islamabad Main Campus", region="Islamabad", address="H-8, Islamabad", contact_id="ct-01"),
-        ]
-        for c in campuses:
-            session.add(c)
-
-        # Seed departments
-        depts = [
-            Department(id="dep-01", name_en="Directorate of Admissions", name_ur="شعبۂ داخلہ", category="Admissions", region_id="camp-01", contact_id="ct-01"),
-            Department(id="dep-02", name_en="Examinations Department", name_ur="شعبۂ امتحانات", category="Examinations", region_id="camp-01", contact_id="ct-02"),
-        ]
-        for d in depts:
-            session.add(d)
-
-        # Seed fee tariffs
-        fees = [
-            FeeTariff(id="fee-01", program="BS Computer Science", category="Semester (new)", amount=28500, effective_from=datetime.date(2026, 7, 1), source_doc_ref="Fee Circular A-26 §3.1"),
-            FeeTariff(id="fee-02", program="BS Computer Science", category="Per credit hour (repeat)", amount=2150, effective_from=datetime.date(2026, 7, 1), source_doc_ref="Fee Circular A-26 §3.2"),
-            FeeTariff(id="fee-08", program="Degree", category="Normal service", amount=2000, effective_from=datetime.date(2026, 1, 1), source_doc_ref="Degree Manual §3.5"),
-        ]
-        for f in fees:
-            session.add(f)
-
-        # Seed services
-        services = [
-            Service(id="svc-01", name_en="Admission & Enrolment", name_ur="داخلہ و اندراج", category="Admissions", fee_id="fee-01",
-                    description="Apply for admission.", procedure_text="Apply online.",
-                    document_checklist=[
-                        {"en": "CNIC or B-Form", "ur": "شناختی کارڈ", "copy": True},
-                        {"en": "Previous degree or certificate", "ur": "پچھلی ڈگری", "copy": True},
-                    ],
-                    source_doc_ref="Prospectus 2026-27 §2.1"),
-            Service(id="svc-04", name_en="Degree Application", name_ur="ڈگری کی درخواست", category="Certification", fee_id="fee-08",
-                    description="Apply for degree issuance.", procedure_text="Submit to Degree Section.",
-                    document_checklist=[
-                        {"en": "Degree application form", "ur": "ڈگری درخواست فارم", "copy": False},
-                        {"en": "All semester result cards", "ur": "تمام سمسٹر کے رزلٹ کارڈ", "copy": True},
-                        {"en": "CNIC", "ur": "شناختی کارڈ", "copy": True},
-                    ],
-                    source_doc_ref="Degree Manual §3"),
-        ]
-        for s in services:
-            session.add(s)
-
-        # Seed deadlines
-        deadlines = [
-            Deadline(id="dl-01", service_id="svc-01", semester="Autumn 2026", date=datetime.date(2026, 9, 30), source_doc_ref="Admission Notice A-26/11"),
-            Deadline(id="dl-03", service_id="svc-04", semester="Spring 2026 graduates", date=datetime.date(2026, 11, 30), source_doc_ref="Degree Manual §3.1"),
-        ]
-        for dl in deadlines:
-            session.add(dl)
-
-        # Seed knowledge chunks (embedding stored as TEXT in SQLite)
-        chunks = [
-            KnowledgeChunk(id="kc-01", source_doc_id="prospectus-2026", section="§2 Admission Policy",
-                           text="Admission to all undergraduate programmes requires at least 50% marks in the qualifying examination."),
-            KnowledgeChunk(id="kc-05", source_doc_id="exam-regs-2026", section="§7 Results",
-                           text="Results are published on the results portal once the gazette is notified."),
-        ]
-        for kc in chunks:
-            session.add(kc)
-
-        await session.commit()
+            await session.commit()
         yield session
         await session.rollback()
 

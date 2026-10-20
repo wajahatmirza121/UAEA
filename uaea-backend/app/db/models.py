@@ -10,9 +10,17 @@ from sqlalchemy import (
     JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func, Date,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import settings
+
+
+# pgvector columns render as TEXT on SQLite so the whole schema also runs in
+# local "no Docker" mode and in the test-suite.
+@compiles(Vector, "sqlite")
+def _compile_vector_sqlite(type_, compiler, **kw):  # pragma: no cover - trivial
+    return "TEXT"
 
 
 class Base(DeclarativeBase):
@@ -225,3 +233,257 @@ class UnansweredQuery(Base):
         DateTime(timezone=True), nullable=False, default=_now
     )
     reason: Mapped[str] = mapped_column(String(255), nullable=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Academic catalogue (public information — anyone can ask)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Program(Base):
+    """A degree programme, e.g. BSCS. Public."""
+    __tablename__ = "programs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_ur: Mapped[str] = mapped_column(String(255), nullable=True)
+    level: Mapped[str] = mapped_column(String(40), nullable=False)          # Undergraduate / Graduate / Postgraduate
+    faculty: Mapped[str] = mapped_column(String(120), nullable=False)       # Faculty of Computing ...
+    department_id: Mapped[str] = mapped_column(String(36), ForeignKey("departments.id"), nullable=True)
+    duration_years: Mapped[float] = mapped_column(Float, nullable=False)
+    semesters: Mapped[int] = mapped_column(Integer, nullable=False)
+    credit_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    seats: Mapped[int] = mapped_column(Integer, nullable=True)
+    shift: Mapped[str] = mapped_column(String(60), nullable=True)
+    eligibility: Mapped[str] = mapped_column(Text, nullable=True)
+    min_percentage: Mapped[int] = mapped_column(Integer, nullable=True)
+    entry_test: Mapped[str] = mapped_column(String(255), nullable=True)
+    campuses: Mapped[list] = mapped_column(JSON, nullable=True, default=list)   # campus ids
+    aliases: Mapped[list] = mapped_column(JSON, nullable=True, default=list)    # bscs, bs cs, computer science
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    source_doc_ref: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    department: Mapped[Department | None] = relationship(lazy="joined")
+
+
+class AcademicEvent(Base):
+    """Academic calendar entry: classes start, mid-terms, finals, breaks. Public."""
+    __tablename__ = "academic_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    term: Mapped[str] = mapped_column(String(40), nullable=False, index=True)   # Fall 2026
+    program_code: Mapped[str] = mapped_column(String(20), nullable=True, index=True)  # NULL = all programmes
+    level: Mapped[str] = mapped_column(String(40), nullable=True)               # optional level filter
+    event: Mapped[str] = mapped_column(String(120), nullable=False)
+    event_ur: Mapped[str] = mapped_column(String(120), nullable=True)
+    start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[datetime.date] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    source_doc_ref: Mapped[str] = mapped_column(String(255), nullable=True)
+
+
+class Faculty(Base):
+    """A teacher. Public directory information only (no personal phone)."""
+    __tablename__ = "faculty"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    designation: Mapped[str] = mapped_column(String(80), nullable=False)
+    department_id: Mapped[str] = mapped_column(String(36), ForeignKey("departments.id"), nullable=True)
+    program_codes: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    email: Mapped[str] = mapped_column(String(160), nullable=True)
+    office: Mapped[str] = mapped_column(String(120), nullable=True)
+    office_hours: Mapped[str] = mapped_column(String(120), nullable=True)
+    specialization: Mapped[str] = mapped_column(String(255), nullable=True)
+    qualification: Mapped[str] = mapped_column(String(160), nullable=True)
+
+    department: Mapped[Department | None] = relationship(lazy="joined")
+
+
+class Course(Base):
+    """A course in a programme's scheme of studies. Public."""
+    __tablename__ = "courses"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    code: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    credit_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    program_code: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    semester_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    instructor_id: Mapped[str] = mapped_column(String(36), ForeignKey("faculty.id"), nullable=True)
+    prerequisite: Mapped[str] = mapped_column(String(20), nullable=True)
+
+    instructor: Mapped[Faculty | None] = relationship(lazy="joined")
+
+
+class ClassSchedule(Base):
+    """One weekly timetable slot. Public."""
+    __tablename__ = "class_schedules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    term: Mapped[str] = mapped_column(String(40), nullable=False)
+    program_code: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    semester_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    section: Mapped[str] = mapped_column(String(10), nullable=False, default="A")
+    campus_id: Mapped[str] = mapped_column(String(36), ForeignKey("campuses.id"), nullable=True)
+    day: Mapped[str] = mapped_column(String(12), nullable=False)
+    start_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    end_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    course_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    course_title: Mapped[str] = mapped_column(String(200), nullable=False)
+    room: Mapped[str] = mapped_column(String(40), nullable=True)
+    instructor_name: Mapped[str] = mapped_column(String(160), nullable=True)
+
+
+class Scholarship(Base):
+    __tablename__ = "scholarships"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name_ur: Mapped[str] = mapped_column(String(200), nullable=True)
+    kind: Mapped[str] = mapped_column(String(60), nullable=False)     # Need-based / Merit / Special
+    coverage: Mapped[str] = mapped_column(String(200), nullable=False)
+    eligibility: Mapped[str] = mapped_column(Text, nullable=False)
+    deadline: Mapped[datetime.date] = mapped_column(Date, nullable=True)
+    seats: Mapped[int] = mapped_column(Integer, nullable=True)
+    how_to_apply: Mapped[str] = mapped_column(Text, nullable=True)
+    source_doc_ref: Mapped[str] = mapped_column(String(255), nullable=True)
+
+
+class Hostel(Base):
+    __tablename__ = "hostels"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    campus_id: Mapped[str] = mapped_column(String(36), ForeignKey("campuses.id"), nullable=True)
+    gender: Mapped[str] = mapped_column(String(10), nullable=False)    # Male / Female
+    capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    vacant_seats: Mapped[int] = mapped_column(Integer, nullable=True)
+    room_type: Mapped[str] = mapped_column(String(120), nullable=True)
+    fee_per_semester: Mapped[int] = mapped_column(Integer, nullable=False)
+    mess_fee_per_month: Mapped[int] = mapped_column(Integer, nullable=True)
+    facilities: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    warden_name: Mapped[str] = mapped_column(String(160), nullable=True)
+    warden_phone: Mapped[str] = mapped_column(String(40), nullable=True)
+    source_doc_ref: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    campus: Mapped[Campus | None] = relationship(lazy="joined")
+
+
+class TransportRoute(Base):
+    __tablename__ = "transport_routes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    route_no: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    campus_id: Mapped[str] = mapped_column(String(36), ForeignKey("campuses.id"), nullable=True)
+    stops: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    morning_departure: Mapped[str] = mapped_column(String(10), nullable=True)
+    evening_departure: Mapped[str] = mapped_column(String(10), nullable=True)
+    fee_per_semester: Mapped[int] = mapped_column(Integer, nullable=True)
+    driver_contact: Mapped[str] = mapped_column(String(40), nullable=True)
+
+    campus: Mapped[Campus | None] = relationship(lazy="joined")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Student records (PRIVATE — only after OTP verification)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Student(Base):
+    __tablename__ = "students"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    roll_number: Mapped[str] = mapped_column(String(30), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    father_name: Mapped[str] = mapped_column(String(160), nullable=True)
+    gender: Mapped[str] = mapped_column(String(10), nullable=True)
+    program_code: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    campus_id: Mapped[str] = mapped_column(String(36), ForeignKey("campuses.id"), nullable=True)
+    batch: Mapped[str] = mapped_column(String(20), nullable=True)          # Fall 2023
+    section: Mapped[str] = mapped_column(String(10), nullable=True)
+    current_semester: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="Active")
+    cgpa: Mapped[float] = mapped_column(Float, nullable=True)
+    phone: Mapped[str] = mapped_column(String(30), nullable=False)          # WhatsApp number for OTP
+    email: Mapped[str] = mapped_column(String(160), nullable=True)
+    cnic_masked: Mapped[str] = mapped_column(String(20), nullable=True)
+    hostel_id: Mapped[str] = mapped_column(String(36), ForeignKey("hostels.id"), nullable=True)
+    advisor_id: Mapped[str] = mapped_column(String(36), ForeignKey("faculty.id"), nullable=True)
+
+    campus: Mapped[Campus | None] = relationship(lazy="joined")
+
+
+class ResultRecord(Base):
+    __tablename__ = "result_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    roll_number: Mapped[str] = mapped_column(String(30), ForeignKey("students.roll_number"), nullable=False, index=True)
+    term: Mapped[str] = mapped_column(String(40), nullable=False)
+    semester_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    gpa: Mapped[float] = mapped_column(Float, nullable=False)
+    cgpa: Mapped[float] = mapped_column(Float, nullable=False)
+    credit_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)          # Pass / Probation / Fail
+    courses: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    published_on: Mapped[datetime.date] = mapped_column(Date, nullable=True)
+    gazette_ref: Mapped[str] = mapped_column(String(80), nullable=True)
+
+
+class FeeRecord(Base):
+    __tablename__ = "fee_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    roll_number: Mapped[str] = mapped_column(String(30), ForeignKey("students.roll_number"), nullable=False, index=True)
+    term: Mapped[str] = mapped_column(String(40), nullable=False)
+    challan_no: Mapped[str] = mapped_column(String(40), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    late_fine: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    scholarship_discount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    due_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    paid_on: Mapped[datetime.date] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)          # Paid / Unpaid / Overdue
+    bank: Mapped[str] = mapped_column(String(80), nullable=True)
+
+
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    roll_number: Mapped[str] = mapped_column(String(30), ForeignKey("students.roll_number"), nullable=False, index=True)
+    term: Mapped[str] = mapped_column(String(40), nullable=False)
+    course_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    course_title: Mapped[str] = mapped_column(String(200), nullable=False)
+    attended: Mapped[int] = mapped_column(Integer, nullable=False)
+    total: Mapped[int] = mapped_column(Integer, nullable=False)
+    percentage: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_on: Mapped[datetime.date] = mapped_column(Date, nullable=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  OTP verification (WhatsApp)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class OtpChallenge(Base):
+    """One OTP sent for one (chat session, roll number).
+
+    status: pending → verified | expired | locked | cancelled.
+    When verified, ``verified_until`` grants this session access to that
+    student's private records for a short window.
+    """
+    __tablename__ = "otp_challenges"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    session_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    roll_number: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    phone: Mapped[str] = mapped_column(String(30), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pending_tool: Mapped[dict] = mapped_column(JSON, nullable=True)          # {"name":..., "args":...}
+    pending_question: Mapped[str] = mapped_column(Text, nullable=True)
+    delivery: Mapped[str] = mapped_column(String(40), nullable=True)         # whatsapp:twilio / console / failed
+    delivery_ref: Mapped[str] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    verified_until: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True)

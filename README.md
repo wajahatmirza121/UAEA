@@ -10,15 +10,21 @@ _"Your University. Your Language. Your AI Assistant."_
 
 ## Running it
 
+The student chat talks to the FastAPI backend in `uaea-backend/` (Groq LLM +
+university database + WhatsApp OTP). Start the backend first — see
+[`uaea-backend/README.md`](uaea-backend/README.md) — then:
+
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173  (chat calls http://localhost:8000)
 npm run build    # production bundle into dist/
 npm run preview  # serve the built bundle
 ```
 
-Node 18 or newer. No environment variables, no backend, no database — the whole
-console runs on fixtures.
+Node 18 or newer. The backend URL comes from `VITE_API_URL` (see `.env.example`,
+default `http://localhost:8000`). If the backend is not running, the chat falls
+back to the built-in demo data and says so under each answer; the staff console
+pages still run on fixtures.
 
 ---
 
@@ -195,14 +201,15 @@ Suggested order:
 
 Honest list, so nothing is a surprise later:
 
-- **WhatsApp.** The web channel is here; the Business API side (§4.1) is not.
-- **Real NLU.** The classifier is keyword scoring, not a trained model. It
-  handles the cases in `src/lib/classify.js` well and will miss phrasings that
-  are not in the rules — which is exactly why it escalates rather than guesses.
-- **Login.** No OTP or roll-number auth, so nothing personal is ever shown.
+- **WhatsApp chat channel.** WhatsApp is used to *deliver OTP codes* (Twilio or
+  Meta Cloud API); students still chat on the web.
+- **Student login.** Private records are unlocked per chat with a WhatsApp OTP
+  for 15 minutes — there is no account system.
+- **Staff console on live data.** The admin pages still use `src/mocks/*`; only
+  the student chat is wired to the backend.
 - **Intent management.** You can see intent distribution but not edit the intent
   list or its training examples.
 - **Per-step drop-off analytics** inside a flow. Flow-level drop-off is shown;
   step-level is not.
-- **Voice, OTP auth, deadline reminders, the transactional layer.** All Phase 2
-  and 3, and correctly absent — informational accuracy has to be proven first.
+- **Voice, deadline reminders, the transactional layer** (paying fees, submitting
+  requests from the chat).

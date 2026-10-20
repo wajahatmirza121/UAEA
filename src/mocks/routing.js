@@ -65,12 +65,16 @@ export const CATEGORIES = [
 
 /** Starter questions, in the way students actually type them. */
 export const QUICK_ASKS = [
-  { text: "Admission ki last date kya hai?", intent: "admission" },
+  { text: "BSCS ki classes kab sy shuru hongi?", intent: "class_schedule" },
   { text: "BS Computer Science ki fees kitni hai?", intent: "fee_tariff" },
+  { text: "Roll no BSCS-2023-014 ka result dikhao", intent: "result" },
+  { text: "Admission ki last date kya hai?", intent: "admission" },
+  { text: "BSCS 3rd semester ka timetable", intent: "timetable" },
+  { text: "Girls hostel ki fees kitni hai?", intent: "hostel" },
+  { text: "Scholarship kab tak apply kar sakte hain?", intent: "scholarships" },
   { text: "Fee challan kahan se banega?", intent: "fee_challan" },
   { text: "ڈگری کے لیے کون سے کاغذات چاہییں؟", intent: "degree" },
-  { text: "Result kab announce hoga?", intent: "result" },
-  { text: "Transcript apply karne ka tareeqa?", intent: "transcript" },
+  { text: "Minimum attendance kitni honi chahiye?", intent: "policy" },
   { text: "Rawalpindi campus ka number chahiye", intent: "department_lookup" },
   { text: "NOC ke liye kya documents chahiye?", intent: "noc" },
 ];

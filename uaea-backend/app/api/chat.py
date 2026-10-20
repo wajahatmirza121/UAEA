@@ -45,6 +45,12 @@ async def post_message(request: Request, req: ChatMessageRequest, db: AsyncSessi
         confidence=result.get("confidence", 0.0),
         language=result.get("language", "en"),
         sources=result.get("sources", []),
+        intent_label=result.get("intent_label"),
+        otp=result.get("otp"),
+        verified_roll=result.get("verified_roll"),
+        engine=result.get("engine"),
+        model=result.get("model"),
+        resolved=result.get("resolved", True),
     )
 
 

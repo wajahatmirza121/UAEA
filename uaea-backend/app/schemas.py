@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Lookup ────────────────────────────────────────────────────────────────────
@@ -48,9 +48,10 @@ class FeeTariffOut(BaseModel):
 
 
 class ChecklistItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     en: str
     ur: str | None = None
-    copy: bool = False
+    needs_copy: bool = Field(default=False, alias="copy")
 
 
 class ServiceOut(BaseModel):
@@ -79,9 +80,9 @@ class DeadlineOut(BaseModel):
 # ── Chat ──────────────────────────────────────────────────────────────────────
 
 class ChatMessageRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(min_length=1, max_length=100)
     channel: str = "web"
-    text: str
+    text: str = Field(min_length=1, max_length=2000)
 
 
 class ToolCallOut(BaseModel):
@@ -98,6 +99,12 @@ class ChatMessageResponse(BaseModel):
     confidence: float = 0.0
     language: str = "en"
     sources: list[dict[str, Any]] = []
+    intent_label: str | None = None
+    otp: dict[str, Any] | None = None          # set when a WhatsApp code was sent / is pending
+    verified_roll: str | None = None           # set on the turn the OTP was accepted
+    engine: str | None = None                  # groq | offline | otp
+    model: str | None = None
+    resolved: bool = True
 
 
 class EscalateRequest(BaseModel):
