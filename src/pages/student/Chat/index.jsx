@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
 import ChatSidebar from "./ChatSidebar";
@@ -69,7 +69,9 @@ const GREETING = {
 export default function Chat() {
   const { store, urdu } = useApp();
   const location = useLocation();
-
+  const navigate = useNavigate();
+  // Guards the question handed over from the home page so it is sent once.
+  const handedOffRef = useRef(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -96,7 +98,12 @@ export default function Chat() {
       },
     ]);
     const handed = location.state?.question;
-    if (handed) setTimeout(() => send(handed), 260);
+    if (handed && !handedOffRef.current) {
+      handedOffRef.current = true;
+      // Clear it from the page history too, so a refresh doesn't ask again.
+      navigate(location.pathname, { replace: true, state: null });
+      setTimeout(() => send(handed), 260);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

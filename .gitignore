@@ -7,3 +7,9 @@ dist-ssr
 .DS_Store
 .vite
 *.log
+
+.venv/
+*.db
+node_modules/
+__pycache__/
+dist/
