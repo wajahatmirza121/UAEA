@@ -3,9 +3,18 @@ import RoutingCard from "./RoutingCard";
 import SourceChip from "./SourceChip";
 import ToolTrace from "./ToolTrace";
 import EscalationCard from "./EscalationCard";
+import OtpCard from "./OtpCard";
+import Markdown from "@/components/student/Markdown";
+
+const ENGINE_LABEL = {
+  groq: (m) => `Answered by Groq${m ? ` · ${m}` : ""} from university records`,
+  offline: () => "Answered from university records (offline mode)",
+  otp: () => "Verified with a WhatsApp code",
+  local: () => "Backend unreachable — answered from the built-in demo data",
+};
 
 /** One turn. Student messages are plain; assistant turns carry their evidence. */
-export default function MessageBubble({ message, onFeedback, onSuggest }) {
+export default function MessageBubble({ message, onFeedback, onSuggest, otpActive }) {
   const isMe = message.role === "user";
   const rtl = message.lang === "ur";
 
@@ -19,7 +28,8 @@ export default function MessageBubble({ message, onFeedback, onSuggest }) {
         {!isMe && message.classification && <RoutingCard classification={message.classification} />}
 
         <div className={`st-said${rtl ? " ur" : ""}`}>
-          {message.lines.map((line, i) =>
+          {message.markdown != null && <Markdown text={message.markdown} />}
+          {(message.lines || []).map((line, i) =>
             typeof line === "string" ? (
               line ? <p key={i} style={{ margin: i ? "9px 0 0" : 0 }}>{line}</p> : null
             ) : (
@@ -42,10 +52,15 @@ export default function MessageBubble({ message, onFeedback, onSuggest }) {
           )}
         </div>
 
+        {!isMe && message.otp && <OtpCard otp={message.otp} active={otpActive} onSubmit={onSuggest} />}
+
         {!isMe && (
           <>
             <SourceChip source={message.source} verified={message.verified} trust={message.trust} />
             <ToolTrace toolCalls={message.toolCalls} />
+            {message.engine && ENGINE_LABEL[message.engine] && (
+              <div className="st-engine">{ENGINE_LABEL[message.engine](message.model)}</div>
+            )}
             {!message.resolved && (
               <EscalationCard department={message.classification?.department} reason={message.reason} />
             )}

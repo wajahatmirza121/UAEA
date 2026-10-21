@@ -62,7 +62,11 @@ async def test_tool_get_deadline(seeded_db):
     """tool_get_deadline returns the right deadline for a service."""
     result = await tool_get_deadline(seeded_db, "Admission")
     assert "error" not in result
-    assert result["date"] == "2026-09-30"
+    # With TODAY_OVERRIDE=2026-10-20 the Fall 2026 date has passed, so the
+    # tool leads with the next upcoming deadline and still lists the old one.
+    assert result["date"] == "2027-01-20"
+    assert result["passed"] is False
+    assert any(d["date"] == "2026-09-30" and d["passed"] for d in result["all_deadlines"])
 
 
 @pytest.mark.asyncio

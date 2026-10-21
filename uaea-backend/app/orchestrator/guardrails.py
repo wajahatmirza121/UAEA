@@ -71,20 +71,47 @@ def _extract_values(obj, values: set[str]):
         values.add(str(obj).strip().lower())
 
 
-def check_reply(reply: str, tool_calls: list[dict]) -> GuardrailResult:
+def _date_variants(text: str) -> set[str]:
+    """'2 November 2026' / '02-11-2026' → {'2026-11-02', …} for comparison with ISO tool values."""
+    import datetime
+    t = text.strip().replace("/", "-")
+    out = {t.lower()}
+    for fmt in ("%d %B %Y", "%d %b %Y", "%d %B %y", "%d %b %y", "%d-%m-%Y", "%d-%m-%y", "%Y-%m-%d"):
+        try:
+            dt = datetime.datetime.strptime(re.sub(r"\s+", " ", t), fmt).date()
+            out.add(dt.isoformat())
+        except ValueError:
+            continue
+    return out
+
+
+def check_reply(reply: str, tool_calls: list[dict], extra_grounding: list[str] | None = None) -> GuardrailResult:
     """Scan an LLM reply for ungrounded claims and strip them.
+
+    ``extra_grounding`` lets the caller add text that may legitimately be
+    echoed back (the student's own message, today's date).
 
     Returns a GuardrailResult with the cleaned reply and any flags raised.
     """
     grounded = extract_grounded_values(tool_calls)
+    for g in extra_grounding or []:
+        if g:
+            grounded.add(str(g).strip().lower())
+    # Digit-only variants so "Rs 28,500" matches a tool value of 28500 and
+    # "051-9250142" matches a phone string.
+    grounded_digits = {re.sub(r"[^\d]", "", v) for v in grounded}
+    grounded_digits.discard("")
     flags: list[GuardrailFlag] = []
     cleaned = reply
 
     # Check numbers
     for match in NUMBER_PATTERN.finditer(reply):
-        num_text = match.group(0).replace(",", "").replace("Rs", "").replace("rs", "").replace(" ", "").strip()
+        # "Rs. 28,500.00" → "28500"
+        num_text = re.sub(r"[^\d]", "", re.sub(r"\.\d+$", "", match.group(0).strip()))
+        if not num_text:
+            continue
         # Check if this number appears in any grounded value
-        is_grounded = any(num_text in v for v in grounded)
+        is_grounded = any(num_text in v for v in grounded) or any(num_text in v for v in grounded_digits)
         if not is_grounded:
             flags.append(GuardrailFlag("ungrounded_number", match.group(0), match.start()))
 
@@ -92,8 +119,8 @@ def check_reply(reply: str, tool_calls: list[dict]) -> GuardrailResult:
     for match in DATE_PATTERN.finditer(reply):
         date_text = match.group(0)
         # Normalise the date for comparison
-        normalised = date_text.replace("/", "-").lower()
-        is_grounded = any(normalised in v or date_text.lower() in v for v in grounded)
+        variants = _date_variants(date_text)
+        is_grounded = any(any(x in v for v in grounded) for x in variants)
         if not is_grounded:
             flags.append(GuardrailFlag("ungrounded_date", match.group(0), match.start()))
 

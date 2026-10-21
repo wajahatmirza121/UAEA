@@ -337,6 +337,11 @@ export function followUps(intent, lang) {
       degree: ["What is the degree fee?", "How long does it take?"],
       transcript: ["What is the urgent transcript fee?", "Where do I collect it?"],
       result: ["When is the date sheet published?", "How do I apply for rechecking?"],
+      class_schedule: ["When are the mid-term exams?", "BSCS 1st semester timetable"],
+      timetable: ["Who teaches these courses?", "When do classes start?"],
+      hostel: ["Hostel allotment documents?", "Hostel gate timings?"],
+      scholarships: ["Need-based scholarship documents?", "What is the BSCS fee?"],
+      otp_verification: ["Show my attendance too", "What is my fee status?"],
       default: ["What is the admission deadline?", "Give me my campus contact"],
     },
     roman: {
@@ -346,6 +351,11 @@ export function followUps(intent, lang) {
       degree: ["Degree ki fees kitni hai?", "Kitna waqt lagta hai?"],
       transcript: ["Urgent transcript ki fees?", "Kahan se milega?"],
       result: ["Date sheet kab aayegi?", "Rechecking kaise karwaun?"],
+      class_schedule: ["Mid term exams kab hain?", "BSCS 1st semester ka timetable"],
+      timetable: ["Ye courses kaun parhata hai?", "Classes kab shuru hongi?"],
+      hostel: ["Hostel ke liye kya documents chahiye?", "Hostel ki timings kya hain?"],
+      scholarships: ["Need based scholarship ke documents?", "BSCS ki fees kitni hai?"],
+      otp_verification: ["Attendance bhi dikhao", "Fee status kya hai?"],
       default: ["Admission ki last date?", "Mere campus ka number chahiye"],
     },
     ur: {

@@ -1,20 +1,55 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
 import ChatSidebar from "./ChatSidebar";
 import { QUICK_ASKS } from "@/mocks/routing";
 import { classify, detectLanguage, CONFIDENCE_FLOOR } from "@/lib/classify";
 import { answer, trustLine, followUps } from "@/lib/assistant";
+import { chatMessage } from "@/lib/api";
 import { useApp } from "@/context/AppContext";
 
 let seq = 0;
 const nextId = () => `m${++seq}`;
+const newSessionId = () =>
+  `web-${(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)}`;
+
+/** Turn a POST /v1/chat/message response into a thread message. */
+function fromBackend(data, localClassification, lang) {
+  const src = (data.sources || [])[0];
+  const isOtpTurn = data.engine === "otp" || !!data.otp;
+  let classification = null;
+  if (!isOtpTurn) {
+    if (localClassification && localClassification.confidence >= CONFIDENCE_FLOOR) classification = localClassification;
+    else if (data.intent_label && data.confidence >= CONFIDENCE_FLOOR)
+      classification = { label: data.intent_label, confidence: data.confidence };
+  }
+  const resolved = data.resolved !== false;
+  return {
+    id: nextId(),
+    role: "bot",
+    lang: data.language || lang,
+    classification,
+    markdown: data.reply,
+    lines: [],
+    toolCalls: data.tool_calls || [],
+    source: src ? [src.source, src.section].filter(Boolean).join(" ") : null,
+    verified: null,
+    trust: null,
+    resolved,
+    otp: data.otp || null,
+    engine: data.engine,
+    model: data.model,
+    escalated: data.escalated,
+    reason: resolved ? null : "I could not find this in the university records.",
+    followUps: resolved && !data.otp && !isOtpTurn ? followUps(data.intent, data.language || lang) : null,
+  };
+}
 
 const GREETING = {
-  en: "Assalam o alaikum. Ask me about fees, deadlines, documents or which office handles what. I will tell you where each answer came from.",
-  roman: "Assalam o alaikum. Fees, tareekhon, dastavezaat ya kisi bhi shobe ke baare mein poochein. Har jawab ke saath uska source bhi bataunga.",
-  ur: "السلام علیکم۔ فیس، تاریخوں، دستاویزات یا کسی بھی شعبے کے بارے میں پوچھیں۔ ہر جواب کے ساتھ اس کا ماخذ بھی بتاؤں گا۔",
+  en: "Assalam o alaikum. Ask me about fees, deadlines, when classes start, timetables, hostels, scholarships or which office handles what. For your own result, fee status or attendance, send your roll number — I will verify it with a code on WhatsApp first.",
+  roman: "Assalam o alaikum. Fees, tareekhon, classes kab shuru hongi, timetable, hostel, scholarship ya kisi bhi shobe ke baare mein poochein. Apna result, fee status ya attendance dekhne ke liye roll number likhein — pehle WhatsApp par code se verify hoga.",
+  ur: "السلام علیکم۔ فیس، تاریخوں، کلاسز کے آغاز، ٹائم ٹیبل، ہاسٹل یا وظائف کے بارے میں پوچھیں۔ اپنا رزلٹ، فیس یا حاضری دیکھنے کے لیے رول نمبر لکھیں — پہلے واٹس ایپ پر کوڈ سے تصدیق ہو گی۔",
 };
 
 /**
@@ -26,12 +61,17 @@ const GREETING = {
  * than three replies later. An unanswered slot question is carried to the
  * next turn, so a bare programme or campus name completes it.
  *
- * ↯ API SEAM — POST /v1/chat/message replaces the classify/answer pair below.
+ * Every message goes to the backend (POST /v1/chat/message), which uses
+ * Groq + the university database and asks for a WhatsApp OTP before showing
+ * any student's private records. If the backend is unreachable, the built-in
+ * demo engine (mock data) answers instead, so the page never dead-ends.
  */
 export default function Chat() {
   const { store, urdu } = useApp();
   const location = useLocation();
-
+  const navigate = useNavigate();
+  // Guards the question handed over from the home page so it is sent once.
+  const handedOffRef = useRef(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -41,6 +81,8 @@ export default function Chat() {
   // read inside the send timeout where captured state would be stale.
   const slotRef = useRef(null);
   const bottomRef = useRef(null);
+  // One backend conversation per chat; "Start over" begins a new one.
+  const sessionRef = useRef(newSessionId());
 
   const greetLang = urdu ? "ur" : "roman";
 
@@ -56,7 +98,12 @@ export default function Chat() {
       },
     ]);
     const handed = location.state?.question;
-    if (handed) setTimeout(() => send(handed), 260);
+    if (handed && !handedOffRef.current) {
+      handedOffRef.current = true;
+      // Clear it from the page history too, so a refresh doesn't ask again.
+      navigate(location.pathname, { replace: true, state: null });
+      setTimeout(() => send(handed), 260);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -64,130 +111,77 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, thinking]);
 
+  /**
+   * The built-in demo engine (mock data, no backend). Used only when the
+   * backend cannot be reached, so the page still works on its own.
+   */
+  const localReply = (text, lang, classification) => {
+    const pending = slotRef.current;
+    if (pending && (!classification || classification.confidence < CONFIDENCE_FLOOR)) {
+      const r = answer({ text, classification: pending.classification, lang: pending.lang, store });
+      slotRef.current = r.needsSlot ? { ...pending, options: r.options } : null;
+      return {
+        id: nextId(), role: "bot", lang: pending.lang, classification: pending.classification,
+        lines: r.body, toolCalls: r.toolCalls, source: r.source, verified: r.verified,
+        trust: trustLine(r.verified, pending.lang), resolved: r.resolved, options: r.options, engine: "local",
+        followUps: r.resolved && !r.needsSlot ? followUps(pending.classification.intent, pending.lang) : null,
+      };
+    }
+    if (!classification || classification.confidence < CONFIDENCE_FLOOR) {
+      const fallbackDept = classification?.department || store.departments.find((d) => d.id === "dep-01");
+      return {
+        id: nextId(), role: "bot", lang, engine: "local",
+        classification: classification || { label: "Not recognised", confidence: 0, department: fallbackDept },
+        lines: [
+          lang === "ur"
+            ? "معذرت، میں یقین سے نہیں کہہ سکتا کہ یہ سوال کس شعبے کا ہے، اس لیے اندازہ نہیں لگاؤں گا۔"
+            : lang === "roman"
+            ? "Maazrat, main yaqeen se nahi keh sakta ke ye sawal kis shobe ka hai, is liye andaaza nahi lagaunga."
+            : "I am not confident which department this belongs to, so I would rather not guess.",
+        ],
+        toolCalls: [], resolved: false, reason: "Nothing in my records matched this closely enough.",
+      };
+    }
+    const r = answer({ text, classification, lang, store });
+    slotRef.current = r.needsSlot ? { slot: r.needsSlot, classification, lang, options: r.options } : null;
+    return {
+      id: nextId(), role: "bot", lang, classification, lines: r.body, toolCalls: r.toolCalls,
+      source: r.source, verified: r.verified, trust: trustLine(r.verified, lang), resolved: r.resolved,
+      options: r.options, engine: "local",
+      followUps: r.resolved && !r.needsSlot ? followUps(classification.intent, lang) : null,
+    };
+  };
+
   const send = useCallback(
-    (raw) => {
+    async (raw) => {
       const text = String(raw ?? "").trim();
       if (!text) return;
 
       const lang = detectLanguage(text);
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), role: "user", lang, lines: [text], resolved: true },
-      ]);
+      // Codes are typed as messages; mask them in the thread like a password field.
+      const shown = /^\s*\d{3}[\s-]?\d{3}\s*$/.test(text) ? "••••••" : text;
+      setMessages((prev) => [...prev, { id: nextId(), role: "user", lang, lines: [shown], resolved: true }]);
       setDraft("");
       setThinking(true);
 
-      // Latency is simulated so the classify → look up → answer sequence is
-      // legible rather than appearing instantaneously.
-      setTimeout(() => {
-        const classification = classify(text, store.departments);
+      // Classified locally too, so the routing card and sidebar can show the
+      // owning office straight away.
+      const classification = classify(text, store.departments);
 
-        // A bare slot answer ("BS Computer Science") matches no rule on its
-        // own — it completes the pending question, so it belongs to that turn
-        // and its language rather than to a fresh classification.
-        const pending = slotRef.current;
-        if (pending && (!classification || classification.confidence < CONFIDENCE_FLOOR)) {
-          const slotResult = answer({
-            text,
-            classification: pending.classification,
-            lang: pending.lang,
-            store,
-          });
-          const slotTrust = trustLine(slotResult.verified, pending.lang);
-          // Answered: clear the slot. Not answerable: answer() re-asks the
-          // question with the same options, so the flow never dead-ends.
-          slotRef.current = slotResult.needsSlot
-            ? { ...pending, options: slotResult.options }
-            : null;
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: nextId(),
-              role: "bot",
-              lang: pending.lang,
-              classification: pending.classification,
-              lines: slotResult.body,
-              toolCalls: slotResult.toolCalls,
-              source: slotResult.source,
-              verified: slotResult.verified,
-              trust: slotTrust,
-              resolved: slotResult.resolved,
-              options: slotResult.options,
-              followUps:
-                slotResult.resolved && !slotResult.needsSlot
-                  ? followUps(pending.classification.intent, pending.lang)
-                  : null,
-            },
-          ]);
-          setThinking(false);
-          setContext(pending.classification);
-          return;
-        }
-
-        // Nothing matched at all: hand over rather than improvise.
-        if (!classification || classification.confidence < CONFIDENCE_FLOOR) {
-          const fallbackDept =
-            classification?.department || store.departments.find((d) => d.id === "dep-01");
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: nextId(),
-              role: "bot",
-              lang,
-              classification: classification || {
-                label: "Not recognised",
-                confidence: 0,
-                department: fallbackDept,
-              },
-              lines: [
-                lang === "ur"
-                  ? "معذرت، میں یقین سے نہیں کہہ سکتا کہ یہ سوال کس شعبے کا ہے، اس لیے اندازہ نہیں لگاؤں گا۔"
-                  : lang === "roman"
-                  ? "Maazrat, main yaqeen se nahi keh sakta ke ye sawal kis shobe ka hai, is liye andaaza nahi lagaunga."
-                  : "I am not confident which department this belongs to, so I would rather not guess.",
-              ],
-              toolCalls: [],
-              resolved: false,
-              reason: "Nothing in my records matched this closely enough.",
-              classificationDepartment: fallbackDept,
-            },
-          ]);
-          setThinking(false);
-          setContext(classification);
-          return;
-        }
-
-        const result = answer({ text, classification, lang, store });
-        const trust = trustLine(result.verified, lang);
-
-        // An answer the tools could not finish becomes state: the next
-        // message that names a programme or campus completes this turn.
-        slotRef.current = result.needsSlot
-          ? { slot: result.needsSlot, classification, lang, options: result.options }
-          : null;
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: nextId(),
-            role: "bot",
-            lang,
-            classification,
-            lines: result.body,
-            toolCalls: result.toolCalls,
-            source: result.source,
-            verified: result.verified,
-            trust,
-            resolved: result.resolved,
-            options: result.options,
-            followUps: result.resolved && !result.needsSlot ? followUps(classification.intent, lang) : null,
-          },
-        ]);
-        setThinking(false);
-        setContext(classification);
-      }, 620);
+      let msg;
+      try {
+        const data = await chatMessage(sessionRef.current, text);
+        msg = fromBackend(data, classification, lang);
+        slotRef.current = null;
+      } catch (err) {
+        console.warn("[chat] backend unavailable, using built-in demo data:", err?.message);
+        msg = localReply(text, lang, classification);
+      }
+      setMessages((prev) => [...prev, msg]);
+      setThinking(false);
+      if (msg.classification) setContext(msg.classification);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [store]
   );
 
@@ -196,6 +190,7 @@ export default function Chat() {
 
   const reset = () => {
     slotRef.current = null;
+    sessionRef.current = newSessionId();
     setContext(null);
     setMessages([
       { id: nextId(), role: "bot", lang: greetLang, lines: [GREETING[greetLang]], resolved: true },
@@ -209,8 +204,14 @@ export default function Chat() {
     <div className="st-chat">
       <div className="st-thread">
         <div className="st-msgs">
-          {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} onFeedback={onFeedback} onSuggest={send} />
+          {messages.map((m, i) => (
+            <MessageBubble
+              key={m.id}
+              message={m}
+              onFeedback={onFeedback}
+              onSuggest={send}
+              otpActive={!!m.otp && i === messages.length - 1 && !thinking}
+            />
           ))}
 
           {thinking && (
@@ -228,7 +229,7 @@ export default function Chat() {
             </div>
           )}
 
-          {!thinking && suggestions && (
+          {!thinking && suggestions && !last?.otp && (
             <div className="st-chips" style={{ justifyContent: "flex-start", paddingLeft: 41 }}>
               {suggestions.map((s) => (
                 <button

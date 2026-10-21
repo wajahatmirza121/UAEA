@@ -101,3 +101,63 @@ async def get_checklist(
     """
     result = await tool_get_document_checklist(db, service)
     return result
+
+
+# ── Expanded public catalogue (same functions the chatbot's tools use) ────────
+
+from app.orchestrator import tools as T  # noqa: E402
+
+
+@router.get("/campuses")
+async def lookup_campuses(db: AsyncSession = Depends(get_db)):
+    return await T.tool_list_campuses(db)
+
+
+@router.get("/programs")
+async def lookup_programs(level: str | None = Query(None), campus: str | None = Query(None),
+                          db: AsyncSession = Depends(get_db)):
+    return await T.tool_list_programs(db, level, campus)
+
+
+@router.get("/programs/{program}")
+async def lookup_program(program: str, db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_program_info(db, program)
+
+
+@router.get("/calendar")
+async def lookup_calendar(program: str | None = Query(None), term: str | None = Query(None),
+                          event: str | None = Query(None), db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_academic_calendar(db, program, term, event)
+
+
+@router.get("/timetable")
+async def lookup_timetable(program: str = Query(...), semester_no: int | None = Query(None),
+                           day: str | None = Query(None), db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_class_timetable(db, program, semester_no, day)
+
+
+@router.get("/courses")
+async def lookup_courses(program: str | None = Query(None), semester_no: int | None = Query(None),
+                         query: str | None = Query(None), db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_courses(db, program, semester_no, query)
+
+
+@router.get("/faculty")
+async def lookup_faculty(query: str = Query(...), db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_faculty(db, query)
+
+
+@router.get("/scholarships")
+async def lookup_scholarships(query: str | None = Query(None), db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_scholarships(db, query)
+
+
+@router.get("/hostels")
+async def lookup_hostels(campus: str | None = Query(None), gender: str | None = Query(None),
+                         db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_hostel_info(db, campus, gender)
+
+
+@router.get("/transport")
+async def lookup_transport(area: str | None = Query(None), db: AsyncSession = Depends(get_db)):
+    return await T.tool_get_transport_routes(db, area)

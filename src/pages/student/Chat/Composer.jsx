@@ -45,8 +45,8 @@ export default function Composer({ value, onChange, onSend, disabled }) {
         </button>
       </div>
       <p style={{ fontSize: 11, color: "var(--t3)", textAlign: "center", margin: "9px 0 0" }}>
-        Answers come from University records and show when they were last checked. For anything
-        tied to your own roll number, please contact your campus.
+        Answers come from University records. Results, fee status and attendance are shown only
+        after a verification code sent to the student's WhatsApp.
       </p>
     </div>
   );
